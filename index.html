@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SD3 Backend Engineer — Locus</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #0a0a0f;
+    color: #c0c0c0;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+    font-size: 14px;
+    line-height: 1.6;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  .scanline {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    pointer-events: none;
+    z-index: 100;
+    background: repeating-linear-gradient(
+      0deg,
+      rgba(0,0,0,0.03) 0px,
+      rgba(0,0,0,0.03) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+  }
+
+  .crt-flicker {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    pointer-events: none;
+    z-index: 99;
+    animation: flicker 0.15s infinite;
+    opacity: 0.02;
+    background: white;
+  }
+
+  @keyframes flicker {
+    0%, 100% { opacity: 0.02; }
+    50% { opacity: 0.01; }
+  }
+
+  .terminal {
+    padding: 20px 30px;
+    height: 100vh;
+    overflow-y: auto;
+    position: relative;
+  }
+
+  .terminal::-webkit-scrollbar { width: 6px; }
+  .terminal::-webkit-scrollbar-track { background: #0a0a0f; }
+  .terminal::-webkit-scrollbar-thumb { background: #2D003C; border-radius: 3px; }
+
+  /* Title bar */
+  .title-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: #1a1a2e;
+    border-radius: 8px 8px 0 0;
+    margin-bottom: 0;
+    border: 1px solid #2a2a3e;
+    border-bottom: none;
+    opacity: 0;
+    animation: fadeIn 0.3s ease forwards;
+  }
+
+  .dot { width: 12px; height: 12px; border-radius: 50%; }
+  .dot-red { background: #ff5f57; }
+  .dot-yellow { background: #ffbd2e; }
+  .dot-green { background: #28c840; }
+  .title-text { color: #666; font-size: 12px; margin-left: 12px; }
+
+  .terminal-body {
+    background: #0d0d14;
+    border: 1px solid #2a2a3e;
+    border-top: none;
+    border-radius: 0 0 8px 8px;
+    padding: 20px;
+    min-height: 80vh;
+  }
+
+  /* Colors */
+  .green { color: #00D173; }
+  .purple { color: #b48ead; }
+  .blue { color: #14B5F0; }
+  .orange { color: #FF8C00; }
+  .red { color: #CC4444; }
+  .yellow { color: #ffbd2e; }
+  .white { color: #e0e0e0; }
+  .dim { color: #555; }
+  .cyan { color: #88c0d0; }
+  .bright { color: #fff; font-weight: 700; }
+  .accent { color: #00D173; font-weight: 700; }
+
+  /* Typing cursor */
+  .cursor {
+    display: inline-block;
+    width: 8px;
+    height: 16px;
+    background: #00D173;
+    animation: blink 1s step-end infinite;
+    vertical-align: middle;
+    margin-left: 2px;
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .line {
+    opacity: 0;
+    white-space: pre;
+    min-height: 22px;
+  }
+
+  .line.visible {
+    animation: fadeIn 0.15s ease forwards;
+  }
+
+  /* Progress bar */
+  .progress-bar {
+    display: inline-block;
+    width: 200px;
+    height: 10px;
+    background: #1a1a2e;
+    border-radius: 5px;
+    overflow: hidden;
+    vertical-align: middle;
+  }
+
+  .progress-fill {
+    height: 100%;
+    border-radius: 5px;
+    width: 0%;
+    transition: width 0.8s ease;
+  }
+
+  .progress-fill.green-bg { background: linear-gradient(90deg, #00D173, #00ff88); }
+  .progress-fill.blue-bg { background: linear-gradient(90deg, #14B5F0, #5bc0fa); }
+  .progress-fill.orange-bg { background: linear-gradient(90deg, #FF8C00, #ffaa33); }
+  .progress-fill.red-bg { background: linear-gradient(90deg, #CC4444, #ff6666); }
+  .progress-fill.purple-bg { background: linear-gradient(90deg, #6A3D99, #b48ead); }
+
+  /* Pipeline visualization */
+  .pipeline {
+    display: flex;
+    gap: 0;
+    margin: 10px 0;
+    opacity: 0;
+  }
+
+  .pipeline.visible {
+    animation: fadeIn 0.4s ease forwards;
+  }
+
+  .pipe-stage {
+    padding: 8px 16px;
+    border: 1px solid;
+    text-align: center;
+    min-width: 120px;
+    position: relative;
+    opacity: 0.3;
+    transition: all 0.5s ease;
+  }
+
+  .pipe-stage.active {
+    opacity: 1;
+    box-shadow: 0 0 15px rgba(0, 209, 115, 0.2);
+  }
+
+  .pipe-stage.done {
+    opacity: 1;
+  }
+
+  .pipe-arrow {
+    display: flex;
+    align-items: center;
+    color: #333;
+    font-size: 18px;
+    padding: 0 4px;
+    transition: color 0.5s ease;
+  }
+
+  .pipe-arrow.lit { color: #00D173; }
+
+  .stage-design { border-color: #b48ead; color: #b48ead; background: rgba(180, 142, 173, 0.05); }
+  .stage-design.active, .stage-design.done { background: rgba(180, 142, 173, 0.15); }
+  .stage-build { border-color: #14B5F0; color: #14B5F0; background: rgba(20, 181, 240, 0.05); }
+  .stage-build.active, .stage-build.done { background: rgba(20, 181, 240, 0.15); }
+  .stage-ship { border-color: #00D173; color: #00D173; background: rgba(0, 209, 115, 0.05); }
+  .stage-ship.active, .stage-ship.done { background: rgba(0, 209, 115, 0.15); }
+  .stage-run { border-color: #FF8C00; color: #FF8C00; background: rgba(255, 140, 0, 0.05); }
+  .stage-run.active, .stage-run.done { background: rgba(255, 140, 0, 0.15); }
+  .stage-fix { border-color: #CC4444; color: #CC4444; background: rgba(204, 68, 68, 0.05); }
+  .stage-fix.active, .stage-fix.done { background: rgba(204, 68, 68, 0.15); }
+
+  /* Blinking status */
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+  .pulse { animation: pulse 2s ease infinite; }
+
+  /* Matrix rain background */
+  .matrix-bg {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    pointer-events: none;
+    z-index: -1;
+    opacity: 0.03;
+  }
+</style>
+</head>
+<body>
+
+<div class="scanline"></div>
+<div class="crt-flicker"></div>
+<canvas class="matrix-bg" id="matrix"></canvas>
+
+<div class="terminal">
+  <div class="title-bar">
+    <div class="dot dot-red"></div>
+    <div class="dot dot-yellow"></div>
+    <div class="dot dot-green"></div>
+    <span class="title-text">locus@backend-sd3 — zsh — 120×40</span>
+  </div>
+  <div class="terminal-body" id="output"></div>
+</div>
+
+<script>
+// Matrix rain
+const canvas = document.getElementById('matrix');
+const ctx = canvas.getContext('2d');
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+const chars = 'アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン01';
+const fontSize = 14;
+const columns = canvas.width / fontSize;
+const drops = Array(Math.floor(columns)).fill(1);
+
+function drawMatrix() {
+  ctx.fillStyle = 'rgba(10, 10, 15, 0.05)';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#00D17330';
+  ctx.font = fontSize + 'px monospace';
+  for (let i = 0; i < drops.length; i++) {
+    const text = chars[Math.floor(Math.random() * chars.length)];
+    ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+    if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) drops[i] = 0;
+    drops[i]++;
+  }
+}
+setInterval(drawMatrix, 50);
+
+// Terminal content
+const output = document.getElementById('output');
+let lineDelay = 0;
+const BASE = 80;
+const FAST = 40;
+const PAUSE = 600;
+const SECTION = 900;
+
+function addLine(html, delay = BASE, extraClass = '') {
+  lineDelay += delay;
+  const d = lineDelay;
+  setTimeout(() => {
+    const div = document.createElement('div');
+    div.className = 'line ' + extraClass;
+    div.innerHTML = html;
+    output.appendChild(div);
+    requestAnimationFrame(() => {
+      div.classList.add('visible');
+      div.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    });
+  }, d);
+  return lineDelay;
+}
+
+function addPipeline(delay = BASE) {
+  lineDelay += delay;
+  const d = lineDelay;
+  setTimeout(() => {
+    const container = document.createElement('div');
+    container.className = 'pipeline';
+    container.innerHTML = `
+      <div class="pipe-stage stage-design" id="ps-design">DESIGN</div>
+      <div class="pipe-arrow" id="pa-1">▸▸</div>
+      <div class="pipe-stage stage-build" id="ps-build">BUILD</div>
+      <div class="pipe-arrow" id="pa-2">▸▸</div>
+      <div class="pipe-stage stage-ship" id="ps-ship">SHIP</div>
+      <div class="pipe-arrow" id="pa-3">▸▸</div>
+      <div class="pipe-stage stage-run" id="ps-run">RUN</div>
+      <div class="pipe-arrow" id="pa-4">▸▸</div>
+      <div class="pipe-stage stage-fix" id="ps-fix">FIX</div>
+    `;
+    output.appendChild(container);
+    requestAnimationFrame(() => {
+      container.classList.add('visible');
+      container.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    });
+
+    // Animate stages sequentially
+    const stages = ['design','build','ship','run','fix'];
+    const arrows = [1,2,3,4];
+    stages.forEach((s, i) => {
+      setTimeout(() => {
+        document.getElementById('ps-' + s).classList.add('active');
+        if (i > 0) document.getElementById('pa-' + i).classList.add('lit');
+        setTimeout(() => {
+          document.getElementById('ps-' + s).classList.remove('active');
+          document.getElementById('ps-' + s).classList.add('done');
+        }, 500);
+      }, i * 600);
+    });
+  }, d);
+  lineDelay += 3200;
+}
+
+function addProgress(id, cls, delay = BASE) {
+  lineDelay += delay;
+  const d = lineDelay;
+  setTimeout(() => {
+    const el = document.getElementById(id);
+    if (el) el.style.width = '100%';
+  }, d);
+  lineDelay += 300;
+}
+
+// ═══════════════════════ SCRIPT ═══════════════════════
+
+addLine('<span class="dim">Last login: Tue Mar  4 09:42:17 on ttys003</span>', 200);
+addLine('', PAUSE);
+
+// Boot
+addLine('<span class="green">▶</span> <span class="white">locus@backend</span><span class="dim">:</span><span class="blue">~/sd3-role</span> <span class="dim">$</span> <span class="bright">cat role.manifest</span>', PAUSE);
+addLine('', 200);
+
+addLine('<span class="dim">───────────────────────────────────────────────────────────────</span>', FAST);
+addLine('<span class="bright">  ██████╗  █████╗  ██████╗██╗  ██╗███████╗███╗   ██╗██████╗ </span>', FAST);
+addLine('<span class="bright">  ██╔══██╗██╔══██╗██╔════╝██║ ██╔╝██╔════╝████╗  ██║██╔══██╗</span>', FAST);
+addLine('<span class="bright">  ██████╔╝███████║██║     █████╔╝ █████╗  ██╔██╗ ██║██║  ██║</span>', FAST);
+addLine('<span class="bright">  ██╔══██╗██╔══██║██║     ██╔═██╗ ██╔══╝  ██║╚██╗██║██║  ██║</span>', FAST);
+addLine('<span class="bright">  ██████╔╝██║  ██║╚██████╗██║  ██╗███████╗██║ ╚████║██████╔╝</span>', FAST);
+addLine('<span class="bright">  ╚═════╝ ╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═══╝╚═════╝</span>', FAST);
+addLine('<span class="dim">───────────────────────────────────────────────────────────────</span>', FAST);
+addLine('<span class="green">  LOCUS</span> <span class="dim">|</span> <span class="white">Software Dev Engineer III</span> <span class="dim">|</span> <span class="accent">Single-Threaded Owner</span>', FAST);
+addLine('<span class="dim">───────────────────────────────────────────────────────────────</span>', FAST);
+addLine('', PAUSE);
+
+// Tagline
+addLine('<span class="green">▶</span> <span class="white">locus@backend</span><span class="dim">:</span><span class="blue">~/sd3-role</span> <span class="dim">$</span> <span class="bright">echo $ROLE_PHILOSOPHY</span>', SECTION);
+addLine('', 100);
+addLine('<span class="cyan">  "You own the backend end-to-end.</span>', 200);
+addLine('<span class="cyan">   From design doc to deployment. Production to on-call."</span>', 100);
+addLine('', PAUSE);
+
+// Pipeline
+addLine('<span class="green">▶</span> <span class="white">locus@backend</span><span class="dim">:</span><span class="blue">~/sd3-role</span> <span class="dim">$</span> <span class="bright">./run-pipeline --owner=you --scope=everything</span>', SECTION);
+addLine('', 200);
+addLine('<span class="dim">  Initializing ownership pipeline...</span>', 200);
+addPipeline(400);
+addLine('', 200);
+addLine('<span class="green">  ✔ Pipeline complete.</span> <span class="dim">All stages owned by:</span> <span class="accent">YOU</span>', 200);
+addLine('', PAUSE);
+
+// Scope sections
+addLine('<span class="green">▶</span> <span class="white">locus@backend</span><span class="dim">:</span><span class="blue">~/sd3-role</span> <span class="dim">$</span> <span class="bright">locus describe-role --verbose</span>', SECTION);
+addLine('', 300);
+
+// DESIGN
+addLine('<span class="purple">  ┌─ 📐 DESIGN ──────────────────────────────────────────────</span>', 400);
+addLine('<span class="purple">  │</span> <span class="white">Write RFCs, ADRs, and technical design docs</span>', FAST);
+addLine('<span class="purple">  │</span> <span class="white">Define API contracts — REST, gRPC, async events</span>', FAST);
+addLine('<span class="purple">  │</span> <span class="white">Own data models, schema design, service boundaries</span>', FAST);
+addLine('<span class="purple">  │</span> <span class="white">Make build-vs-buy calls. You decide the architecture.</span>', FAST);
+addLine('<span class="purple">  │</span> <span class="dim">  scope</span>  <span class="progress-bar"><span class="progress-fill purple-bg" id="p1"></span></span> <span class="purple">system-level</span>', FAST);
+addLine('<span class="purple">  └──────────────────────────────────────────────────────────</span>', FAST);
+addProgress('p1', 'purple-bg', 200);
+
+// BUILD
+addLine('<span class="blue">  ┌─ ⚙️  BUILD ───────────────────────────────────────────────</span>', SECTION);
+addLine('<span class="blue">  │</span> <span class="white">Implement services, APIs, and data pipelines</span>', FAST);
+addLine('<span class="blue">  │</span> <span class="white">Write clean, tested, production-grade code</span>', FAST);
+addLine('<span class="blue">  │</span> <span class="white">Unit tests. Integration tests. You ship with confidence.</span>', FAST);
+addLine('<span class="blue">  │</span> <span class="white">Review PRs. Raise the bar for the team.</span>', FAST);
+addLine('<span class="blue">  │</span> <span class="dim">  scope</span>  <span class="progress-bar"><span class="progress-fill blue-bg" id="p2"></span></span> <span class="blue">hands-on-keyboard</span>', FAST);
+addLine('<span class="blue">  └──────────────────────────────────────────────────────────</span>', FAST);
+addProgress('p2', 'blue-bg', 200);
+
+// SHIP
+addLine('<span class="green">  ┌─ 🚀 SHIP ────────────────────────────────────────────────</span>', SECTION);
+addLine('<span class="green">  │</span> <span class="white">CI/CD pipelines — you build them, you own them</span>', FAST);
+addLine('<span class="green">  │</span> <span class="white">Blue-green deploys. Canary rollouts. Feature flags.</span>', FAST);
+addLine('<span class="green">  │</span> <span class="white">Rollback strategy for every release. Zero YOLO deploys.</span>', FAST);
+addLine('<span class="green">  │</span> <span class="white">Friday 5pm? You still don\'t push without a plan.</span>', FAST);
+addLine('<span class="green">  │</span> <span class="dim">  scope</span>  <span class="progress-bar"><span class="progress-fill green-bg" id="p3"></span></span> <span class="green">zero-downtime</span>', FAST);
+addLine('<span class="green">  └──────────────────────────────────────────────────────────</span>', FAST);
+addProgress('p3', 'green-bg', 200);
+
+// RUN
+addLine('<span class="orange">  ┌─ 📊 RUN ─────────────────────────────────────────────────</span>', SECTION);
+addLine('<span class="orange">  │</span> <span class="white">Observability: logs, traces, metrics — you instrument it all</span>', FAST);
+addLine('<span class="orange">  │</span> <span class="white">Define SLOs. Set alerts. Know before the customer knows.</span>', FAST);
+addLine('<span class="orange">  │</span> <span class="white">Performance tuning. Query optimization. Caching strategy.</span>', FAST);
+addLine('<span class="orange">  │</span> <span class="white">Capacity planning — scale before it breaks.</span>', FAST);
+addLine('<span class="orange">  │</span> <span class="dim">  scope</span>  <span class="progress-bar"><span class="progress-fill orange-bg" id="p4"></span></span> <span class="orange">production-grade</span>', FAST);
+addLine('<span class="orange">  └──────────────────────────────────────────────────────────</span>', FAST);
+addProgress('p4', 'orange-bg', 200);
+
+// FIX
+addLine('<span class="red">  ┌─ 🔧 FIX ─────────────────────────────────────────────────</span>', SECTION);
+addLine('<span class="red">  │</span> <span class="white">On-call rotation. PagerDuty rings — you answer.</span>', FAST);
+addLine('<span class="red">  │</span> <span class="white">Triage. Diagnose. Mitigate. Resolve.</span>', FAST);
+addLine('<span class="red">  │</span> <span class="white">Root cause analysis. Blameless post-mortems.</span>', FAST);
+addLine('<span class="red">  │</span> <span class="white">Fix it so it never breaks the same way twice.</span>', FAST);
+addLine('<span class="red">  │</span> <span class="dim">  scope</span>  <span class="progress-bar"><span class="progress-fill red-bg" id="p5"></span></span> <span class="red">war-room-ready</span>', FAST);
+addLine('<span class="red">  └──────────────────────────────────────────────────────────</span>', FAST);
+addProgress('p5', 'red-bg', 200);
+
+addLine('', PAUSE);
+
+// Summary
+addLine('<span class="green">▶</span> <span class="white">locus@backend</span><span class="dim">:</span><span class="blue">~/sd3-role</span> <span class="dim">$</span> <span class="bright">locus verify-ownership --check-all</span>', SECTION);
+addLine('', 300);
+addLine('<span class="dim">  Running ownership verification...</span>', 200);
+addLine('', 200);
+addLine('<span class="green">  ✔</span> <span class="white">Architecture decisions</span>      <span class="dim">........</span> <span class="green">YOURS</span>', 200);
+addLine('<span class="green">  ✔</span> <span class="white">API contracts</span>                <span class="dim">........</span> <span class="green">YOURS</span>', 150);
+addLine('<span class="green">  ✔</span> <span class="white">Service implementation</span>       <span class="dim">........</span> <span class="green">YOURS</span>', 150);
+addLine('<span class="green">  ✔</span> <span class="white">CI/CD pipelines</span>             <span class="dim">........</span> <span class="green">YOURS</span>', 150);
+addLine('<span class="green">  ✔</span> <span class="white">Deployment strategy</span>          <span class="dim">........</span> <span class="green">YOURS</span>', 150);
+addLine('<span class="green">  ✔</span> <span class="white">Observability &amp; monitoring</span>   <span class="dim">........</span> <span class="green">YOURS</span>', 150);
+addLine('<span class="green">  ✔</span> <span class="white">Incident response</span>           <span class="dim">........</span> <span class="green">YOURS</span>', 150);
+addLine('<span class="green">  ✔</span> <span class="white">Post-mortems &amp; RCA</span>          <span class="dim">........</span> <span class="green">YOURS</span>', 150);
+addLine('', 300);
+addLine('<span class="dim">  ─────────────────────────────────────────────────</span>', 100);
+addLine('<span class="bright">  8/8 checks passed.</span> <span class="green">Ownership: COMPLETE</span>', 200);
+addLine('<span class="dim">  ─────────────────────────────────────────────────</span>', 100);
+addLine('', PAUSE);
+
+// Final
+addLine('<span class="green">▶</span> <span class="white">locus@backend</span><span class="dim">:</span><span class="blue">~/sd3-role</span> <span class="dim">$</span> <span class="bright">echo "Ready to build the future of logistics?"</span>', SECTION);
+addLine('', 200);
+addLine('<span class="accent">  Ready to build the future of logistics?</span>', 300);
+addLine('', 200);
+addLine('<span class="green">▶</span> <span class="white">locus@backend</span><span class="dim">:</span><span class="blue">~/sd3-role</span> <span class="dim">$</span> <span class="bright">open https://locus.sh/careers</span> <span class="cursor"></span>', 500);
+
+</script>
+</body>
+</html>
