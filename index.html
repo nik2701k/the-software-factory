@@ -462,6 +462,127 @@ addLine('<span class="accent">  Ready to build the future of logistics?</span>',
 addLine('', 200);
 addLine('<span class="green">▶</span> <span class="white">locus@backend</span><span class="dim">:</span><span class="blue">~/sd3-role</span> <span class="dim">$</span> <span class="bright">open https://locus.sh/careers</span> <span class="cursor"></span>', 500);
 
+// ═══════════════════════ EASTER EGGS ═══════════════════════
+
+// 1. Konami Code: ↑↑↓↓←→←→BA
+const konamiCode = ['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','b','a'];
+let konamiIndex = 0;
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === konamiCode[konamiIndex]) {
+    konamiIndex++;
+    if (konamiIndex === konamiCode.length) {
+      konamiIndex = 0;
+      triggerEasterEgg();
+    }
+  } else {
+    konamiIndex = 0;
+  }
+});
+
+// 2. Secret CLI command — typing "sudo hire me" triggers it too
+let secretBuffer = '';
+document.addEventListener('keydown', (e) => {
+  if (e.key.length === 1) secretBuffer += e.key.toLowerCase();
+  if (secretBuffer.length > 20) secretBuffer = secretBuffer.slice(-20);
+  if (secretBuffer.includes('sudo hire me')) {
+    secretBuffer = '';
+    triggerEasterEgg();
+  }
+});
+
+// 3. Triple-click the title bar text triggers it
+const titleText = document.querySelector('.title-text');
+let clickCount = 0;
+let clickTimer = null;
+if (titleText) {
+  titleText.addEventListener('click', () => {
+    clickCount++;
+    clearTimeout(clickTimer);
+    clickTimer = setTimeout(() => { clickCount = 0; }, 600);
+    if (clickCount >= 3) {
+      clickCount = 0;
+      triggerEasterEgg();
+    }
+  });
+}
+
+let easterEggTriggered = false;
+
+function triggerEasterEgg() {
+  if (easterEggTriggered) return;
+  easterEggTriggered = true;
+
+  // Screen flash
+  const flash = document.createElement('div');
+  flash.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:#00D173;opacity:0.3;z-index:200;pointer-events:none;transition:opacity 0.5s';
+  document.body.appendChild(flash);
+  setTimeout(() => { flash.style.opacity = '0'; }, 100);
+  setTimeout(() => { flash.remove(); }, 600);
+
+  // Glitch effect on all text
+  document.querySelector('.terminal-body').style.animation = 'glitch 0.3s ease';
+
+  const eggLines = [
+    { html: '', delay: 300 },
+    { html: '<span class="dim">───────────────────────────────────────────────────────────────</span>', delay: 100 },
+    { html: '<span class="green">▶</span> <span class="white">locus@backend</span><span class="dim">:</span><span class="blue">~/sd3-role</span> <span class="dim">$</span> <span class="bright">./unlock-secret --access-granted</span>', delay: 200 },
+    { html: '', delay: 200 },
+    { html: '<span class="yellow">  ⚡ ACCESS GRANTED ⚡</span>', delay: 300 },
+    { html: '', delay: 100 },
+    { html: '<span class="green">  ██████████████████████████████████████████████████████████</span>', delay: 50 },
+    { html: '<span class="green">  █                                                        █</span>', delay: 50 },
+    { html: '<span class="green">  █</span>  <span class="bright">You found the easter egg.</span>                            <span class="green">█</span>', delay: 50 },
+    { html: '<span class="green">  █</span>  <span class="bright">That means you\'re curious, persistent,</span>              <span class="green">█</span>', delay: 50 },
+    { html: '<span class="green">  █</span>  <span class="bright">and you read the source code.</span>                       <span class="green">█</span>', delay: 50 },
+    { html: '<span class="green">  █</span>                                                        <span class="green">█</span>', delay: 50 },
+    { html: '<span class="green">  █</span>  <span class="yellow">That\'s exactly who we\'re looking for.</span>                <span class="green">█</span>', delay: 50 },
+    { html: '<span class="green">  █</span>                                                        <span class="green">█</span>', delay: 50 },
+    { html: '<span class="green">  █</span>  <span class="cyan">⮕  FAST-TRACK APPLICATION</span>                           <span class="green">█</span>', delay: 50 },
+    { html: '<span class="green">  █</span>  <span class="white">Email: </span><span class="accent">careers@locus.sh</span>                           <span class="green">█</span>', delay: 50 },
+    { html: '<span class="green">  █</span>  <span class="white">Subject: </span><span class="accent">KONAMI | SD3 Backend | [Your Name]</span>      <span class="green">█</span>', delay: 50 },
+    { html: '<span class="green">  █</span>                                                        <span class="green">█</span>', delay: 50 },
+    { html: '<span class="green">  █</span>  <span class="dim">This skips the recruiter screen.</span>                     <span class="green">█</span>', delay: 50 },
+    { html: '<span class="green">  █</span>  <span class="dim">First conversation is with the engineering lead.</span>     <span class="green">█</span>', delay: 50 },
+    { html: '<span class="green">  █</span>                                                        <span class="green">█</span>', delay: 50 },
+    { html: '<span class="green">  ██████████████████████████████████████████████████████████</span>', delay: 50 },
+    { html: '', delay: 200 },
+    { html: '<span class="dim">  hint: there are multiple ways to trigger this.</span>', delay: 300 },
+    { html: '<span class="dim">  hint: good engineers always read the source.</span>', delay: 100 },
+    { html: '', delay: 200 },
+    { html: '<span class="green">▶</span> <span class="white">locus@backend</span><span class="dim">:</span><span class="blue">~/sd3-role</span> <span class="dim">$</span> <span class="cursor"></span>', delay: 300 },
+  ];
+
+  let eggDelay = 0;
+  eggLines.forEach(({ html, delay }) => {
+    eggDelay += delay;
+    setTimeout(() => {
+      const div = document.createElement('div');
+      div.className = 'line';
+      div.innerHTML = html;
+      output.appendChild(div);
+      requestAnimationFrame(() => {
+        div.classList.add('visible');
+        div.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      });
+    }, eggDelay);
+  });
+}
+
+// Add glitch keyframe
+const glitchStyle = document.createElement('style');
+glitchStyle.textContent = `
+  @keyframes glitch {
+    0% { transform: translate(0); filter: hue-rotate(0deg); }
+    20% { transform: translate(-2px, 2px); filter: hue-rotate(90deg); }
+    40% { transform: translate(2px, -2px); filter: hue-rotate(180deg); }
+    60% { transform: translate(-1px, -1px); filter: hue-rotate(270deg); }
+    80% { transform: translate(1px, 1px); filter: hue-rotate(360deg); }
+    100% { transform: translate(0); filter: hue-rotate(0deg); }
+  }
+`;
+document.head.appendChild(glitchStyle);
+
 </script>
 </body>
 </html>
